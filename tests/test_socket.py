@@ -1,4 +1,4 @@
-"""Phase 2 tests: HTTP routes, Socket.IO events, validation, room isolation.
+"""Phase 2/3 tests: HTTP routes, Socket.IO events, validation, room isolation.
 
 Run from the project root:  python -m pytest tests -v
 """
@@ -20,6 +20,10 @@ SMALL = {"MAX_ROOM_MEMBERS": 3, "MAX_ROOMS": 3, "MAX_CIPHERTEXT_BYTES": 64, "MAX
 
 def b64(raw: bytes) -> str:
     return base64.b64encode(raw).decode("ascii")
+
+
+NONCE = b64(b"n" * 16)
+MAC = b64(b"m" * 32)
 
 
 class Base(unittest.TestCase):
@@ -192,7 +196,7 @@ class MessageTests(Base):
             cl.get_received()
 
     def send(self, client, **kw):
-        payload = {"room": "r1"}
+        payload = {"room": "r1", "nonce": NONCE, "mac": MAC}
         payload.update(kw)
         return client.emit("encrypted_message", payload, callback=True)
 
@@ -203,8 +207,8 @@ class MessageTests(Base):
         got = self.events(self.b, "encrypted_message")
         self.assertEqual(len(got), 1)
         msg = got[0]["args"][0]
-        self.assertEqual(set(msg), {"id", "room", "sender", "ciphertext", "ts"})
-        self.assertEqual(msg["ciphertext"], ct)
+        self.assertEqual(set(msg), {"id", "room", "sender", "nonce", "ciphertext", "mac", "ts"})
+        self.assertEqual((msg["nonce"], msg["ciphertext"], msg["mac"]), (NONCE, ct, MAC))
         self.assertEqual(msg["sender"], "alice")
         self.assertEqual(msg["room"], "r1")
         self.assertEqual(msg["id"], res["id"])
@@ -234,9 +238,11 @@ class MessageTests(Base):
         for room in ("other", "nope", None, 5):
             with self.subTest(room=room):
                 res = self.a.emit("encrypted_message",
-                                  {"room": room, "ciphertext": b64(b"x")}, callback=True)
+                                  {"room": room, "nonce": NONCE, "ciphertext": b64(b"x"), "mac": MAC},
+                                  callback=True)
                 self.assertEqual(res["error"], "not_in_room")
-        res = self.a.emit("encrypted_message", {"ciphertext": b64(b"x")}, callback=True)
+        res = self.a.emit("encrypted_message",
+                          {"nonce": NONCE, "ciphertext": b64(b"x"), "mac": MAC}, callback=True)
         self.assertEqual(res["error"], "not_in_room")
         self.assertEqual(self.events(self.c, "encrypted_message"), [])
 
@@ -257,8 +263,23 @@ class MessageTests(Base):
                 res = self.send(self.a, ciphertext=ct)
                 self.assertFalse(res["ok"])
                 self.assertEqual(res["error"], "invalid_ciphertext")
-        res = self.a.emit("encrypted_message", {"room": "r1"}, callback=True)
+        res = self.a.emit("encrypted_message", {"room": "r1", "nonce": NONCE, "mac": MAC},
+                          callback=True)
         self.assertEqual(res["error"], "invalid_ciphertext")
+        self.assertEqual(self.events(self.b, "encrypted_message"), [])
+
+    def test_invalid_nonce_and_mac(self):
+        bad = [None, 5, "", "!!!!", b64(b"n" * 15), b64(b"n" * 17), b64(b"m" * 31),
+               b64(b"m" * 33), "A" * 100000, "QR=="]
+        for field in ("nonce", "mac"):
+            for value in bad:
+                with self.subTest(field=field, value=str(value)[:12]):
+                    res = self.send(self.a, ciphertext=b64(b"x"), **{field: value})
+                    self.assertEqual(res["error"], "invalid_" + field)
+            payload = {"room": "r1", "nonce": NONCE, "mac": MAC, "ciphertext": b64(b"x")}
+            del payload[field]
+            res = self.a.emit("encrypted_message", payload, callback=True)
+            self.assertEqual(res["error"], "invalid_" + field)
         self.assertEqual(self.events(self.b, "encrypted_message"), [])
 
     def test_size_limits(self):
@@ -291,6 +312,16 @@ class MessageTests(Base):
         msg = self.events(self.b, "encrypted_message")[0]["args"][0]
         self.assertNotIn("Attack", repr(msg))
         self.assertEqual(rc4.decrypt_text(key, msg["ciphertext"]), plaintext)
+
+    def test_index_references_local_assets_only(self):
+        html = self.app.test_client().get("/").get_data(as_text=True)
+        self.assertNotIn("cdnjs", html)
+        for path in ("/static/js/vendor/socket.io.min.js", "/static/js/crypto.js",
+                     "/static/js/protocol.js", "/static/js/app.js", "/static/css/style.css"):
+            r = self.app.test_client().get(path)
+            self.assertEqual(r.status_code, 200, path)
+            r.close()
+            self.assertIn(path, html)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,8 @@
-"""Phase 2 backend: Flask + Flask-SocketIO ciphertext relay (educational).
+"""Backend: Flask + Flask-SocketIO ciphertext relay (educational).
 
 The server never sees plaintext or keys. It validates payloads, checks room
-membership server-side, and relays opaque Base64 ciphertext to the other
-members of the sender's room.
+membership server-side, and relays opaque Base64 `nonce`, `ciphertext` and
+`mac` to the other members of the sender's room.
 """
 
 import math
@@ -26,6 +26,9 @@ DEFAULT_CONFIG = {
     "MAX_CIPHERTEXT_BYTES": 4096,
     "MAX_ECHO_CHARS": 1024,
 }
+
+NONCE_BYTES = 16
+MAC_BYTES = 32
 
 
 def _err(code, message):
@@ -116,19 +119,24 @@ def create_app(config=None):
     def health():
         return jsonify(status="ok")
 
-    def _check_ciphertext(value):
+    def _check_b64(value, field, max_bytes=None, exact=None):
+        code = "invalid_" + field
+        limit = exact or max_bytes
         if not isinstance(value, str):
-            return _err("invalid_ciphertext", "ciphertext must be a Base64 string.")
-        if len(value) > max_b64:
-            return _err("ciphertext_too_large", f"Max {max_ct} bytes.")
+            return _err(code, f"{field} must be a Base64 string.")
+        if len(value) > 4 * math.ceil(limit / 3):
+            return _err("ciphertext_too_large" if exact is None else code,
+                        f"{field}: max {limit} bytes.")
         try:
             raw = from_base64(value)
         except ValueError:
-            return _err("invalid_ciphertext", "ciphertext is not valid Base64.")
+            return _err(code, f"{field} is not valid Base64.")
         if not raw or to_base64(raw) != value:
-            return _err("invalid_ciphertext", "ciphertext must be canonical, non-empty Base64.")
-        if len(raw) > max_ct:
-            return _err("ciphertext_too_large", f"Max {max_ct} bytes.")
+            return _err(code, f"{field} must be canonical, non-empty Base64.")
+        if exact is not None and len(raw) != exact:
+            return _err(code, f"{field} must be exactly {exact} bytes.")
+        if exact is None and len(raw) > max_bytes:
+            return _err("ciphertext_too_large", f"{field}: max {max_bytes} bytes.")
         return None
 
     def _depart(sid):
@@ -177,15 +185,20 @@ def create_app(config=None):
         info = state.lookup(request.sid)
         if info is None or data.get("room") != info[0]:
             return _err("not_in_room", "You are not a member of that room.")
-        error = _check_ciphertext(data.get("ciphertext"))
-        if error:
-            return error
+        for field, kw in (("nonce", {"exact": NONCE_BYTES}),
+                          ("ciphertext", {"max_bytes": max_ct}),
+                          ("mac", {"exact": MAC_BYTES})):
+            error = _check_b64(data.get(field), field, **kw)
+            if error:
+                return error
         room, username = info
         msg = {
             "id": secrets.token_hex(8),
             "room": room,
             "sender": username,
+            "nonce": data["nonce"],
             "ciphertext": data["ciphertext"],
+            "mac": data["mac"],
             "ts": _now_ms(),
         }
         emit("encrypted_message", msg, to=_sio_room(room), skip_sid=request.sid)

@@ -3,102 +3,60 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RC4 Secure Chat - Phase 2 backend check</title>
-  <style>
-    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 1.5rem auto; padding: 0 1rem; }
-    fieldset { margin-bottom: 1rem; }
-    label { display: block; margin: .4rem 0 .2rem; }
-    input { padding: .35rem; width: 16rem; max-width: 100%; }
-    button { padding: .35rem .8rem; margin-top: .5rem; }
-    #status { font-weight: bold; }
-    #log { background: #111; color: #ddd; padding: .6rem; height: 16rem; overflow-y: auto;
-           font: .85rem/1.4 monospace; white-space: pre-wrap; word-break: break-all; }
-    .note { color: #555; font-size: .9rem; }
-  </style>
+  <title>RC4 Secure Chat</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-  <h1>RC4 Secure Chat</h1>
-  <p class="note">Phase 2: backend connectivity check only. Educational project; RC4 is obsolete.
-    The encrypted chat UI arrives in Phase 3.</p>
-  <p>Status: <span id="status">connecting...</span></p>
+  <header class="top">
+    <h1>RC4 Secure Chat</h1>
+    <span class="badge" id="status" role="status">connecting...</span>
+  </header>
+  <p class="edu">Educational demo. RC4 is obsolete; do not use it to protect real data.</p>
 
-  <fieldset>
-    <legend>Room</legend>
-    <label for="username">Username</label>
-    <input id="username" maxlength="24" autocomplete="off">
-    <label for="room">Room</label>
-    <input id="room" maxlength="32" autocomplete="off">
-    <div>
-      <button id="joinBtn" type="button">Join</button>
-      <button id="leaveBtn" type="button">Leave</button>
-    </div>
-  </fieldset>
+  <main id="joinView" class="card">
+    <form id="joinForm" autocomplete="off">
+      <label for="username">Username</label>
+      <input id="username" maxlength="24" pattern="[A-Za-z0-9_\-]{1,24}" required
+             title="1-24 characters: letters, digits, _ or -">
+      <label for="room">Room</label>
+      <input id="room" maxlength="32" pattern="[A-Za-z0-9_\-]{1,32}" required
+             title="1-32 characters: letters, digits, _ or -">
+      <label for="secret">Shared secret (min 8 characters)</label>
+      <input id="secret" type="password" minlength="8" required autocomplete="off">
+      <p class="hint">The secret never leaves your browser. Everyone in the room must type the same one;
+        a different secret means messages fail authentication.</p>
+      <button id="joinBtn" type="submit" disabled>Join</button>
+      <p id="joinError" class="error" role="alert"></p>
+    </form>
+  </main>
 
-  <fieldset>
-    <legend>Echo test</legend>
-    <input id="echoText" value="hello" maxlength="1024">
-    <button id="echoBtn" type="button">Send echo</button>
-  </fieldset>
+  <div id="chatView" class="chat" hidden>
+    <section class="pane">
+      <div class="bar">
+        <strong id="roomTitle"></strong>
+        <button id="leaveBtn" type="button">Leave</button>
+      </div>
+      <p class="members">Members: <span id="members"></span></p>
+      <ol id="messages" class="messages" aria-live="polite"></ol>
+      <form id="sendForm" class="composer" autocomplete="off">
+        <input id="msgInput" maxlength="1000" placeholder="Type a message" aria-label="Message" required>
+        <button type="submit" id="sendBtn">Send</button>
+      </form>
+      <label class="demo"><input type="checkbox" id="tamper"> Demo: corrupt my outgoing ciphertext
+        (receivers should reject it)</label>
+    </section>
 
-  <fieldset>
-    <legend>Relay test (raw Base64 payload, no encryption yet)</legend>
-    <input id="ctText" value="aGVsbG8=" maxlength="6000">
-    <button id="sendBtn" type="button">Send to room</button>
-  </fieldset>
+    <aside class="pane" aria-label="Ciphertext inspector">
+      <div class="bar"><strong>Inspector</strong></div>
+      <p id="inspectorEmpty" class="hint">Press "Inspect" on a message to see its nonce, derived keys,
+        keystream, ciphertext, MAC and exactly what the server relays.</p>
+      <dl id="inspector" class="inspector" hidden></dl>
+    </aside>
+  </div>
 
-  <div id="log" aria-live="polite"></div>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-  <script>
-    (function () {
-      "use strict";
-      var $ = function (id) { return document.getElementById(id); };
-      var joinedRoom = null;
-
-      function log(text) {
-        var el = $("log");
-        el.textContent += text + "\n";
-        el.scrollTop = el.scrollHeight;
-      }
-      function show(label, obj) { log(label + " " + JSON.stringify(obj)); }
-
-      if (typeof io !== "function") {
-        $("status").textContent = "socket.io client failed to load";
-        return;
-      }
-      var socket = io();
-
-      socket.on("connect", function () { $("status").textContent = "connected"; log("connected"); });
-      socket.on("disconnect", function () {
-        $("status").textContent = "disconnected";
-        joinedRoom = null;
-        log("disconnected");
-      });
-      socket.on("connect_error", function () { $("status").textContent = "connection error"; });
-      socket.on("user_joined", function (d) { show("user_joined", d); });
-      socket.on("user_left", function (d) { show("user_left", d); });
-      socket.on("encrypted_message", function (d) { show("encrypted_message", d); });
-
-      $("joinBtn").onclick = function () {
-        socket.emit("join", { room: $("room").value, username: $("username").value }, function (res) {
-          show("join ack", res);
-          if (res && res.ok) joinedRoom = res.room;
-        });
-      };
-      $("leaveBtn").onclick = function () {
-        socket.emit("leave", {}, function (res) {
-          show("leave ack", res);
-          if (res && res.ok) joinedRoom = null;
-        });
-      };
-      $("echoBtn").onclick = function () {
-        socket.emit("echo", { data: $("echoText").value }, function (res) { show("echo ack", res); });
-      };
-      $("sendBtn").onclick = function () {
-        socket.emit("encrypted_message", { room: joinedRoom, ciphertext: $("ctText").value },
-          function (res) { show("send ack", res); });
-      };
-    })();
-  </script>
+  <script src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/crypto.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/protocol.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

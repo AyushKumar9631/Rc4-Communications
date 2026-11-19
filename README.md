@@ -4,8 +4,8 @@ An **educational** demonstration of the RC4 stream cipher inside a real-time enc
 RC4 is cryptographically obsolete. This project is for learning and demonstration only and does
 **not** provide modern security guarantees.
 
-> Status: **Phase 2 of 6 complete** (RC4 core + Flask/Socket.IO ciphertext relay). The encrypted chat UI,
-> performance/security work and deployment are not built yet.
+> Status: **Phase 3 of 6 complete** (RC4 core, ciphertext relay, encrypted chat UI with HKDF + HMAC).
+> Performance/security work and deployment are not built yet.
 > See [PLAN.md](PLAN.md) for the live progress tracker.
 
 ## Planned architecture
@@ -15,12 +15,15 @@ RC4 is cryptographically obsolete. This project is for learning and demonstratio
 - The receiver decrypts locally. The shared secret key never leaves the browser.
 - Hosted on a Render free web service (Phase 5).
 
-## What exists today (Phases 1-2)
+## What exists today (Phases 1-3)
 
 | File | Purpose |
 |---|---|
 | `app.py` | Flask + Flask-SocketIO backend: room membership, validation, ciphertext relay, echo |
-| `templates/index.html` | Basic Phase 2 page to check connectivity (join, echo, raw relay). Replaced by the real UI in Phase 3 |
+| `templates/index.html`, `static/css/style.css`, `static/js/app.js` | Chat UI: join, send, receive, ciphertext inspector |
+| `static/js/protocol.js` | PBKDF2 master key, per-message HKDF key, RC4 encrypt-then-HMAC, verify-then-decrypt |
+| `static/js/vendor/socket.io.min.js` | Socket.IO client 4.7.5 (MIT), served locally (no CDN) |
+| `tests/test_protocol.js`, `tests/test_protocol.py` | Protocol tests; JS vs independent Python/PyCryptodome reference |
 | `tests/test_socket.py` | Socket.IO integration tests (join/leave, validation, isolation, relay, RC4 end-to-end) |
 | `crypto/rc4.py` | Python RC4: `ksa`, `prga`, `keystream`, `encrypt`/`decrypt`, UTF-8, hex, Base64 helpers |
 | `static/js/crypto.js` | JavaScript RC4 with the same API and helpers (works in browser and Node) |
@@ -60,6 +63,7 @@ Node.js is needed only for the JavaScript tests and the Python-vs-JS comparison.
 
 ```powershell
 node tests/test_rc4.js
+node tests/test_protocol.js
 python -m pytest tests -v
 ```
 
@@ -69,11 +73,27 @@ python -m pytest tests -v
 python app.py
 ```
 
-Open http://127.0.0.1:5000 in two browser tabs, join the same room with different usernames,
-then use "Send to room" in one tab and watch the log in the other. `GET /health` returns `{"status":"ok"}`.
+Open http://127.0.0.1:5000 in two browser tabs (use `localhost`/`127.0.0.1`: WebCrypto needs a secure context),
+join the same room with different usernames and the **same shared secret**, then chat. Press "Inspect" on a
+message to see nonce, keys, keystream, ciphertext, MAC. Join a third tab with a different secret to see
+authentication failures. `GET /health` returns `{"status":"ok"}`.
 Optional environment variables: `HOST` (default `127.0.0.1`), `PORT` (default `5000`), `SECRET_KEY`.
 
-## Socket.IO events (Phase 2)
+## Message protocol (Phase 3)
+
+```
+master = PBKDF2-HMAC-SHA256(secret, salt="rc4-chat-v1|"+room, 600000 iters)   once per join
+keys   = HKDF-SHA256(ikm=master, salt=nonce(16 random bytes), info="rc4-chat-v1", 64 bytes)
+         encKey = keys[0:32], macKey = keys[32:64]
+ct     = RC4(encKey, utf8(plaintext))
+mac    = HMAC-SHA256(macKey, "rc4-chat-v1\0" room "\0" sender "\0" nonce ct)
+wire   = {room, nonce, ciphertext, mac}  (Base64)
+```
+
+Receiver verifies the MAC (constant time) before running RC4, drops messages whose nonce was already seen
+in the session, and never decrypts failures. The secret and keys never leave the browser.
+
+## Socket.IO events
 
 Every client-to-server event returns an acknowledgement: `{"ok": true, ...}` or
 `{"ok": false, "error": "<code>", "message": "..."}`.
@@ -82,19 +102,20 @@ Every client-to-server event returns an acknowledgement: `{"ok": true, ...}` or
 |---|---|---|---|
 | `join` | client -> server | `{room, username}` | Room 1-32 and username 1-24 chars of `A-Z a-z 0-9 _ -`. Username unique per room (case-insensitive). One room per connection. Limits: 10 members/room, 100 rooms |
 | `leave` | client -> server | `{}` | Leaves the current room |
-| `encrypted_message` | client -> server | `{room, ciphertext}` | Sender must be a member of `room`. `ciphertext` is canonical Base64, 1-4096 bytes decoded |
-| `encrypted_message` | server -> room (except sender) | `{id, room, sender, ciphertext, ts}` | `id`, `sender`, `ts` are set by the server; client-supplied extras are dropped |
+| `encrypted_message` | client -> server | `{room, nonce, ciphertext, mac}` | Sender must be a member of `room`. Canonical Base64; `nonce` exactly 16 bytes, `ciphertext` 1-4096 bytes, `mac` exactly 32 bytes |
+| `encrypted_message` | server -> room (except sender) | `{id, room, sender, nonce, ciphertext, mac, ts}` | `id`, `sender`, `ts` are set by the server; client-supplied extras are dropped |
 | `echo` | client -> server | `{data}` | Connectivity test; `data` is a string up to 1024 chars; returned in the ack |
 | `user_joined` / `user_left` | server -> room | `{username, members}` | Sent on join, leave and disconnect |
 
 Error codes: `bad_payload`, `invalid_room`, `invalid_username`, `already_in_room`, `username_taken`,
-`room_full`, `room_limit`, `not_in_room`, `invalid_ciphertext`, `ciphertext_too_large`.
+`room_full`, `room_limit`, `not_in_room`, `invalid_nonce`, `invalid_ciphertext`, `invalid_mac`, `ciphertext_too_large`.
 
-## Limitations (Phase 2)
+## Limitations (Phase 3)
 
-- The server relays opaque Base64 and never sees keys or plaintext, but nothing encrypts yet: the UI and
-  HKDF/nonce/HMAC come in Phase 3. The Phase 2 page sends raw Base64 only to test the relay.
+- RC4 is obsolete; the HMAC and per-message keys fix integrity and keystream reuse, not RC4's own biases.
+- A weak shared secret can be brute-forced offline from captured traffic (PBKDF2 only slows it down).
+- No key exchange: users share the secret out of band. No forward secrecy. Replay protection is per
+  browser session only (a rejoin resets the seen-nonce set). The server can drop or reorder messages.
+- Usernames are not authenticated beyond being bound into the MAC; anyone with the secret can join as any free name.
 - Room state is in memory (lost on restart) and there is no rate limiting yet.
-- `python app.py` uses the Werkzeug dev server (fine locally; it may print harmless "Bad request syntax"
-  lines when a WebSocket closes). Production uses Gunicorn in Phase 5.
-- Plain RC4 provides no integrity protection and must never reuse a key.
+- `python app.py` uses the Werkzeug dev server; production uses Gunicorn in Phase 5.
