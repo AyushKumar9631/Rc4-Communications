@@ -1,0 +1,4 @@
+# Phase 1 dependencies (versions below are the ones the tests were actually run with).
+# Flask, Flask-SocketIO, Gunicorn etc. are added in Phase 2 / Phase 5.
+pycryptodome==4.5.0
+pytest==9.1.1

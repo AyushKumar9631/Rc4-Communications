@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets / local config
+.env
+
+# Editor / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Benchmark output (keep the folder, not the results)
+results/*
+!results/.gitkeep
