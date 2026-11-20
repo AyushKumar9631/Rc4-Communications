@@ -8,7 +8,7 @@
   var MAX_ENTRIES = 200;
 
   var $ = function (id) { return document.getElementById(id); };
-  var state = null; // { room, username, master, members, seenNonces, entries }
+  var state = null; // { room, username, master, members, replay, entries }
 
   function setStatus(text, on) {
     var el = $("status");
@@ -179,11 +179,10 @@
     if (state !== st) return; // left or rejoined meanwhile
     var entry = { id: msg.id, own: false, sender: msg.sender, ts: msg.ts, details: res.details,
       relayed: msg, ok: res.ok };
-    if (res.ok && st.seenNonces.has(msg.nonce)) {
+    if (res.ok && !st.replay.accept(msg.nonce)) {
       entry.ok = false;
       entry.error = "Replayed message dropped (nonce already seen).";
     } else if (res.ok) {
-      st.seenNonces.add(msg.nonce);
       entry.text = res.plaintext;
     } else {
       entry.error = ({
@@ -223,7 +222,7 @@
         return;
       }
       state = { room: res.room, username: res.username, master: master, members: res.members,
-        seenNonces: new Set(), entries: new Map() };
+        replay: Proto.createReplayGuard(), entries: new Map() };
       $("secret").value = "";
       showChat();
       sysMessage("Joined. Messages are encrypted in your browser.");

@@ -4,8 +4,8 @@ An **educational** demonstration of the RC4 stream cipher inside a real-time enc
 RC4 is cryptographically obsolete. This project is for learning and demonstration only and does
 **not** provide modern security guarantees.
 
-> Status: **Phase 3 of 6 complete** (RC4 core, ciphertext relay, encrypted chat UI with HKDF + HMAC).
-> Performance/security work and deployment are not built yet.
+> Status: **Phase 5 of 6 complete** (RC4 core, ciphertext relay, encrypted chat UI, benchmarks, security tests, rate limiting).
+> Render deployment files are ready; see [DEPLOYMENT.md](DEPLOYMENT.md).
 > See [PLAN.md](PLAN.md) for the live progress tracker.
 
 ## Planned architecture
@@ -25,6 +25,11 @@ RC4 is cryptographically obsolete. This project is for learning and demonstratio
 | `static/js/vendor/socket.io.min.js` | Socket.IO client 4.7.5 (MIT), served locally (no CDN) |
 | `tests/test_protocol.js`, `tests/test_protocol.py` | Protocol tests; JS vs independent Python/PyCryptodome reference |
 | `tests/test_socket.py` | Socket.IO integration tests (join/leave, validation, isolation, relay, RC4 end-to-end) |
+| `ratelimit.py` | Token-bucket rate limiter used by `app.py` |
+| `static/js/bench.js`, `static/js/bench_ui.js`, `benchmarks/run_bench.js` | Benchmarks, CSV export, UI panel |
+| `tests/test_security.js`, `tests/test_bench.js`, `tests/test_ratelimit.py` | Phase 4 tests |
+| `gunicorn.conf.py`, `render.yaml`, `DEPLOYMENT.md` | Render deployment (Phase 5) |
+| `SECURITY.md` | Threat model, attacks demonstrated, limits |
 | `crypto/rc4.py` | Python RC4: `ksa`, `prga`, `keystream`, `encrypt`/`decrypt`, UTF-8, hex, Base64 helpers |
 | `static/js/crypto.js` | JavaScript RC4 with the same API and helpers (works in browser and Node) |
 | `tests/test_rc4.py` | Known vectors, round trips, invalid input, PyCryptodome comparison, Python-vs-JS comparison |
@@ -66,6 +71,18 @@ node tests/test_rc4.js
 node tests/test_protocol.js
 python -m pytest tests -v
 ```
+
+## Phase 4: benchmarks and security
+
+```powershell
+node benchmarks/run_bench.js     # writes results/crypto_benchmark.csv
+node tests/test_security.js      # keystream reuse, bit flip, replay, wrong key
+node tests/test_bench.js
+```
+
+In the browser, open "Performance benchmark" at the bottom of the page, press Run, then Download CSV
+(includes echo round-trip time to the server). Rate limit: 30-message burst, 10/s per connection.
+See [SECURITY.md](SECURITY.md).
 
 ## Run the server (local)
 
@@ -117,5 +134,5 @@ Error codes: `bad_payload`, `invalid_room`, `invalid_username`, `already_in_room
 - No key exchange: users share the secret out of band. No forward secrecy. Replay protection is per
   browser session only (a rejoin resets the seen-nonce set). The server can drop or reorder messages.
 - Usernames are not authenticated beyond being bound into the MAC; anyone with the secret can join as any free name.
-- Room state is in memory (lost on restart) and there is no rate limiting yet.
-- `python app.py` uses the Werkzeug dev server; production uses Gunicorn in Phase 5.
+- Room state is in memory (lost on restart); rate limiting is per connection, not per IP.
+- `python app.py` uses the Werkzeug dev server; production uses Gunicorn (see DEPLOYMENT.md).

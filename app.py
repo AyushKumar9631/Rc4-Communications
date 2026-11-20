@@ -16,6 +16,7 @@ from flask import Flask, jsonify, render_template, request
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
 from crypto.rc4 import from_base64, to_base64
+from ratelimit import RateLimiter
 
 ROOM_RE = re.compile(r"[A-Za-z0-9_-]{1,32}")
 USERNAME_RE = re.compile(r"[A-Za-z0-9_-]{1,24}")
@@ -25,6 +26,8 @@ DEFAULT_CONFIG = {
     "MAX_ROOMS": 100,
     "MAX_CIPHERTEXT_BYTES": 4096,
     "MAX_ECHO_CHARS": 1024,
+    "RATE_BURST": 30,
+    "RATE_PER_SEC": 10,
 }
 
 NONCE_BYTES = 16
@@ -107,8 +110,13 @@ def create_app(config=None):
         app,
         async_mode="threading",
         max_http_buffer_size=max_b64 + 2048,
+        # Optional: comma-separated allowed origins; unset keeps the same-origin default.
+        cors_allowed_origins=[o.strip() for o in os.environ["ALLOWED_ORIGINS"].split(",")]
+        if os.environ.get("ALLOWED_ORIGINS") else None,
     )
     state = ChatState()
+    limiter = RateLimiter(cfg["RATE_BURST"], cfg["RATE_PER_SEC"])
+    rate_error = _err("rate_limited", "Too many requests; slow down.")
     app.extensions["chat_state"] = state
 
     @app.get("/")
@@ -149,6 +157,8 @@ def create_app(config=None):
 
     @socketio.on("join")
     def on_join(data):
+        if not limiter.allow(request.sid):
+            return rate_error
         if not isinstance(data, dict):
             return _err("bad_payload", "Payload must be an object.")
         room, username = data.get("room"), data.get("username")
@@ -176,10 +186,13 @@ def create_app(config=None):
 
     @socketio.on("disconnect")
     def on_disconnect(reason=None):
+        limiter.forget(request.sid)
         _depart(request.sid)
 
     @socketio.on("encrypted_message")
     def on_encrypted_message(data):
+        if not limiter.allow(request.sid):
+            return rate_error
         if not isinstance(data, dict):
             return _err("bad_payload", "Payload must be an object.")
         info = state.lookup(request.sid)
@@ -206,6 +219,8 @@ def create_app(config=None):
 
     @socketio.on("echo")
     def on_echo(data):
+        if not limiter.allow(request.sid):
+            return rate_error
         text = data.get("data") if isinstance(data, dict) else None
         if not isinstance(text, str) or len(text) > cfg["MAX_ECHO_CHARS"]:
             return _err("bad_payload",

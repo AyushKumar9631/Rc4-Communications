@@ -54,9 +54,20 @@
     </aside>
   </div>
 
+  <details id="benchPanel" class="card">
+    <summary>Performance benchmark</summary>
+    <p class="hint">Times RC4 and the full protocol (HKDF + RC4 + HMAC) in this browser, plus echo
+      round-trip time to the server. Download the CSV and keep it in <code>results/</code>.</p>
+    <button id="benchRun" type="button">Run benchmark</button>
+    <button id="benchCsv" type="button" disabled>Download CSV</button>
+    <pre id="benchOut" class="bench-out" aria-live="polite"></pre>
+  </details>
+
   <script src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/crypto.js') }}"></script>
   <script src="{{ url_for('static', filename='js/protocol.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bench.js') }}"></script>
   <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/bench_ui.js') }}"></script>
 </body>
 </html>

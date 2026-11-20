@@ -1,7 +1,8 @@
 # Versions below are the ones the tests were actually run with.
-# Gunicorn etc. are added in Phase 5.
+# gunicorn is used by Render (Phase 5).
 pycryptodome==4.5.0
 pytest==9.1.1
 Flask==3.1.3
 Flask-SocketIO==5.7.2
 simple-websocket==1.1.0
+gunicorn==23.0.0

@@ -145,6 +145,18 @@
     }
   }
 
+  /** Session-scoped replay guard: accept(nonceB64) is true only the first time a nonce is seen. */
+  function createReplayGuard() {
+    var seen = new Set();
+    return {
+      accept: function (nonceB64) {
+        if (seen.has(nonceB64)) return false;
+        seen.add(nonceB64);
+        return true;
+      }
+    };
+  }
+
   return {
     VERSION: VERSION,
     NONCE_BYTES: NONCE_BYTES,
@@ -153,6 +165,7 @@
     deriveMaster: deriveMaster,
     deriveMessageKeys: deriveMessageKeys,
     encryptMessage: encryptMessage,
-    decryptMessage: decryptMessage
+    decryptMessage: decryptMessage,
+    createReplayGuard: createReplayGuard
   };
 });

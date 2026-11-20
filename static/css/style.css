@@ -59,3 +59,5 @@ button.ghost, .bar button { background: transparent; color: var(--accent); }
                 background: var(--bg); padding: .3rem .4rem; border-radius: 4px; }
 .inspector dd.good { color: var(--ok); }
 .inspector dd.bad { color: var(--bad); }
+#benchPanel { margin-top: 1rem; }
+.bench-out { font-family: var(--mono); font-size: .75rem; overflow-x: auto; margin: .6rem 0 0; }

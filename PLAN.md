@@ -7,9 +7,9 @@
 - **Target hosting platform:** Render free web service (via GitHub)
 
 ## Current Status
-- **Current phase:** Phase 3 complete, awaiting approval for Phase 4
-- **Last completed phase:** 3
-- **Overall progress:** 3 / 6 phases
+- **Current phase:** Phase 5 files complete (not deployed yet), awaiting approval for Phase 6
+- **Last completed phase:** 5
+- **Overall progress:** 5 / 6 phases
 - **Last updated:** 2026-11-19 17:15 UTC (22:45 IST)
 - **Current blockers:** None
 
@@ -20,8 +20,8 @@
 | 1 | RC4 implementation | Completed | 21 pytest + 11 JS passed | Run in Linux sandbox, not yet on your Windows machine |
 | 2 | Backend | Completed | 28 pytest (socket + HTTP) passed; live WebSocket smoke test passed | Run in Linux sandbox, not yet on your Windows machine |
 | 3 | Encrypted chat UI | Completed | 54 pytest + 11 + 12 JS passed; real-browser (Chromium) 3-tab check passed | Run in Linux sandbox, not yet on your Windows machine |
-| 4 | Performance/security | Pending | Not run | |
-| 5 | Render deployment | Pending | Not run | |
+| 4 | Performance/security | Completed | 9 security + 1 bench JS + 3 limiter pytest-style passed; socket rate-limit tests NOT run | Flask-SocketIO/pytest not installable in sandbox (no network); see Test Results |
+| 5 | Render deployment | Completed (files only) | Syntax + YAML parse only | Gunicorn/Render not run in sandbox; you must deploy (Manual Action 6) |
 | 6 | Final testing | Pending | Not run | |
 
 ## Completed Tasks
@@ -49,9 +49,15 @@
 - [x] `app.py`: `encrypted_message` now requires/validates `nonce` (16 B) and `mac` (32 B) and relays them
 - [x] Tests: `tests/test_protocol.js` (12), `tests/test_protocol.py` (JS vs Python/PyCryptodome HKDF/ARC4/HMAC reference), `tests/test_socket.py` updated (+nonce/mac validation, local-assets check)
 
+- [x] Phase 4: `ratelimit.py` token bucket wired into `join`/`encrypted_message`/`echo` (`rate_limited` error; `RATE_BURST` 30, `RATE_PER_SEC` 10)
+- [x] `static/js/bench.js` (RC4 + protocol timing, PBKDF2 once, echo RTT, CSV), `benchmarks/run_bench.js` -> `results/crypto_benchmark.csv`, browser panel `static/js/bench_ui.js` with CSV download
+- [x] `protocol.js` `createReplayGuard()` (app.js now uses it; behavior unchanged)
+- [x] `tests/test_security.js` (keystream reuse, bit flip, replay, wrong key), `tests/test_bench.js`, `tests/test_ratelimit.py`
+- [x] `SECURITY.md`
+
+- [x] Phase 5: `gunicorn.conf.py` (1 worker, 100 threads, `$PORT`, trusts proxy), `render.yaml` (free plan, `/health`, generated `SECRET_KEY`), `gunicorn==23.0.0` in requirements, optional `ALLOWED_ORIGINS` env in `app.py`, `DEPLOYMENT.md`
+
 ## Pending Tasks
-- [ ] Phase 4: Benchmarks, RTT, CSV export, security tests, SECURITY.md
-- [ ] Phase 5: Render deployment files and DEPLOYMENT.md
 - [ ] Phase 6: Final testing, DEMO_GUIDE.md, VIVA_QA.md, FINAL_CHECKLIST.md
 
 ## File Inventory
@@ -77,6 +83,14 @@
 | `requirements.txt` | Pinned Python dependencies (RC4 tests + Flask stack) |
 | `.gitignore` | Git ignore rules |
 | `results/.gitkeep` | Keeps benchmark output folder in git |
+| `ratelimit.py` | Per-connection token bucket |
+| `static/js/bench.js`, `static/js/bench_ui.js` | Benchmark library and UI panel |
+| `benchmarks/run_bench.js` | Node crypto benchmark -> `results/crypto_benchmark.csv` |
+| `tests/test_security.js`, `tests/test_bench.js`, `tests/test_ratelimit.py` | Phase 4 tests |
+| `SECURITY.md` | Threat model and limits |
+| `gunicorn.conf.py` | Gunicorn settings for Render |
+| `render.yaml` | Render Blueprint |
+| `DEPLOYMENT.md` | Deploy, verify, troubleshoot |
 | `README.md` | Overview, setup, test commands |
 | `PLAN.md` | This file |
 
@@ -95,6 +109,13 @@
 | Known vectors | included above | 3 classic + 2 RFC 6229 keystream, both languages | Pass | |
 | PyCryptodome agreement | included above | 300 random + known inputs match | Pass | |
 | JS vs Python | included above | 203 cases match (ciphertext, keystream, Base64) | Pass | Includes 100,000-byte input and 256-byte key |
+| Security suite | `node tests/test_security.js` | 9 passed | Pass | Node v22.23.5 |
+| Bench tests | `node tests/test_bench.js` | passed (fake socket for RTT, CSV shape) | Pass | |
+| Benchmark run | `node benchmarks/run_bench.js` | CSV written; e.g. protocol 4096 B ~0.17 ms enc, RC4 4096 B ~0.018 ms; PBKDF2 ~105 ms | Pass | Sandbox numbers, indicative only |
+| Limiter unit tests | `python -m unittest tests.test_ratelimit` | 3 passed, 2 socket tests skipped | Partial | Flask-SocketIO missing in sandbox |
+| Bench UI | Playwright Chromium, stub `io` | Panel ran, RTT row + CSV download OK, 0 page errors | Partial | Real server RTT not exercised |
+| Phase 1-3 suites | node tests/test_rc4.js, test_protocol.js | 11 + 12 passed | Pass | Python suite and real-server socket tests NOT rerun after `app.py` change |
+| Deploy files | `ast.parse` on `app.py`, `gunicorn.conf.py`; YAML parse of `render.yaml` | OK | Partial | Gunicorn, Flask-SocketIO and Render not available in sandbox |
 | On user's Windows machine | not run | | Unverified | See Manual Actions |
 | UI on your browsers | not run | | Unverified | See Manual Actions |
 
@@ -104,19 +125,22 @@
 |---|---|---|---|---|---|
 | 1 | Set up venv, reinstall requirements and run tests locally | Confirm everything works on your machine | README "Setup on Windows" and "Run the tests" | `node tests/test_rc4.js` -> 11 passed; `node tests/test_protocol.js` -> 12 passed; `python -m pytest tests -v` -> 54 passed | No |
 | 2 | Install Node.js if `node --version` fails | Needed for JS tests and cross-language tests | https://nodejs.org (LTS) | `node --version` | No |
+| 4 | Run full suite after Phase 4 | Socket rate-limit tests and Phase 2-3 socket tests could not run in sandbox | `pip install -r requirements.txt` then `python -m pytest tests -v` | All pass, none skipped |
+| 5 | Run server, open page, run benchmark panel, download CSV into `results/` | Real RTT numbers | `python app.py` | CSV has `rtt_echo` row |
+| 6 | Push to GitHub, deploy via Render Blueprint, follow DEPLOYMENT.md "Verify" | Real deployment untested | See `DEPLOYMENT.md` | `/health` ok; 2 browsers chat; third with wrong secret fails | No |
 | 3 | Run the server, open two tabs (same secret) and a third (different secret) | Confirm real browser behavior | `python app.py`, open http://127.0.0.1:5000 | Same-secret tab shows message "authenticated"; other-secret tab shows red failure; Inspect panel fills | No |
 
 ## Deployment Status
-- **Local:** Server runs in sandbox (`python app.py`); not tested on user's machine
-- **Render:** Not configured
+- **Local:** Server ran in sandbox in Phases 2-3 (`python app.py`); not tested on user's machine
+- **Render:** Configured (`render.yaml`), not deployed
 - **Public URL:** None
-- **Outstanding deployment issues:** None yet (Phase 5)
+- **Outstanding deployment issues:** Unknown until first deploy; `gunicorn==23.0.0` pin and WebSocket origin check behind Render proxy unverified (fallback: `ALLOWED_ORIGINS`)
 
 ## Known Issues and Limitations
 - Shared secret is user-chosen (min 8 chars); weak secrets are brute-forceable offline. No key exchange, no forward secrecy. Replay protection is per-session only. WebCrypto requires HTTPS or localhost (Render is HTTPS).
 - Inspector shows the per-message RC4 key for teaching; remove if reused beyond the demo.
 - UI tested in Chromium only (sandbox), not Firefox/Safari.
-- Room state is in memory (lost on restart); no rate limiting yet (consider in Phase 4).
+- Room state is in memory (lost on restart); rate limiting is per connection only. Phase 4 `app.py` change (limiter) is untested against a real server in the sandbox.
 - `python app.py` uses the Werkzeug dev server with `allow_unsafe_werkzeug=True`; it can print harmless "Bad request syntax" lines when a WebSocket closes. Gunicorn replaces it in Phase 5.
 - Frames larger than the engine buffer (about 7.5 KB with default limits) are dropped by Socket.IO before our handler runs, so the sender gets no ack.
 - Tests use the Flask-SocketIO test client; real transport was only smoke-tested ad hoc in the sandbox.
@@ -125,6 +149,16 @@
 - Package is named `crypto/` per the spec; PyCryptodome's package is `Crypto/` (capital C). Python import is case-sensitive, so they do not clash.
 
 ## Change Log
+
+### Phase 5
+- **Created:** `gunicorn.conf.py`, `render.yaml`, `DEPLOYMENT.md`
+- **Modified:** `requirements.txt` (gunicorn), `app.py` (`ALLOWED_ORIGINS`), `README.md`, `PLAN.md`
+- **Deleted:** none
+
+### Phase 4
+- **Created:** `ratelimit.py`, `static/js/bench.js`, `static/js/bench_ui.js`, `benchmarks/run_bench.js`, `results/crypto_benchmark.csv`, `tests/test_security.js`, `tests/test_bench.js`, `tests/test_ratelimit.py`, `SECURITY.md`
+- **Modified:** `app.py` (limiter), `static/js/protocol.js` (`createReplayGuard`), `static/js/app.js` (uses guard), `templates/index.html` + `static/css/style.css` (bench panel), `README.md`, `PLAN.md`
+- **Deleted:** none
 
 ### Phase 3
 - **Created:** `static/js/protocol.js`, `static/js/app.js`, `static/css/style.css`, `static/js/vendor/socket.io.min.js`, `static/js/vendor/socket.io-client.LICENSE`, `tests/test_protocol.js`, `tests/test_protocol.py`, `tests/protocol_cross_check.js`
@@ -148,7 +182,7 @@
 - **Tests performed:** see Test Results
 
 ## Next Phase
-- **Phase 4:** Performance and security
-- **Objectives:** Benchmarks (encrypt/decrypt time vs size, RTT), CSV export to `results/`, security demonstrations/tests (keystream reuse, bit-flip without MAC, replay, wrong key), rate limiting, `SECURITY.md`
-- **Dependencies:** Phase 3 approved
-- **Expected deliverables:** benchmark scripts/UI, `results/*.csv`, security tests, `SECURITY.md`, updated `PLAN.md`
+- **Phase 6:** Final testing
+- **Objectives:** Full test pass on your machine and Render, `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`
+- **Dependencies:** Phase 5 approved
+- **Expected deliverables:** the three docs, final test results, updated `PLAN.md`
