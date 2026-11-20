@@ -22,7 +22,7 @@
 | 3 | Encrypted chat UI | Completed | 54 pytest + 11 + 12 JS passed; real-browser (Chromium) 3-tab check passed | Run in Linux sandbox, not yet on your Windows machine |
 | 4 | Performance/security | Completed | 9 security + 1 bench JS + 3 limiter pytest-style passed; socket rate-limit tests NOT run | Flask-SocketIO/pytest not installable in sandbox (no network); see Test Results |
 | 5 | Render deployment | Completed | Deployed by user; site works | Files written in sandbox; deployment and live check done by user |
-| 6 | Final testing | Completed | User live check: site, rooms, encryption, inspector OK | DEMO_GUIDE, VIVA_QA, FINAL_CHECKLIST added; open items listed in FINAL_CHECKLIST.md |
+| 6 | Final testing | Completed | Live checks passed incl. rate limit 31/60 | DEMO_GUIDE, VIVA_QA, FINAL_CHECKLIST added; Python suite never run |
 
 ## Completed Tasks
 - [x] Project directory structure created
@@ -119,6 +119,9 @@
 | Phase 1-3 suites | node tests/test_rc4.js, test_protocol.js | 11 + 12 passed | Pass | Python suite and real-server socket tests NOT rerun after `app.py` change |
 | Deploy files | `ast.parse` on `app.py`, `gunicorn.conf.py`; YAML parse of `render.yaml` | OK | Partial | Gunicorn, Flask-SocketIO and Render not available in sandbox |
 | Live Render site | manual by user | site loads, rooms work, encryption works, inspector populated | Pass | Reported by user; wrong-secret and corrupt toggle not reported |
+| Live checks (wrong secret, corrupt toggle, inspector failure, nonce uniqueness, XSS text, join rules, leave/rejoin) | manual by user on Render | all reported passed | Pass | Reported by user |
+| Live rate limit | browser console: 60 rapid `echo` | 31 ok of 60 (burst 30 + 1 refill) | Pass | Confirms limiter on real Gunicorn server |
+| Python suite | not run | | Unverified | User chose not to run locally; not runnable in sandbox |
 | On user's Windows machine | not run | | Unverified | See Manual Actions |
 | UI on your browsers | not run | | Unverified | See Manual Actions |
 
@@ -131,7 +134,7 @@
 | 4 | Run full suite after Phase 4 | Socket rate-limit tests and Phase 2-3 socket tests could not run in sandbox | `pip install -r requirements.txt` then `python -m pytest tests -v` | All pass, none skipped |
 | 5 | Run server, open page, run benchmark panel, download CSV into `results/` | Real RTT numbers | `python app.py` | CSV has `rtt_echo` row |
 | 6 | Push to GitHub, deploy via Render Blueprint, follow DEPLOYMENT.md "Verify" | Real deployment untested | See `DEPLOYMENT.md` | `/health` ok; 2 browsers chat; third with wrong secret fails | Yes (user confirmed) |
-| 3 | Run the server, open two tabs (same secret) and a third (different secret) | Confirm real browser behavior | `python app.py`, open http://127.0.0.1:5000 | Same-secret tab shows message "authenticated"; other-secret tab shows red failure; Inspect panel fills | Partly: user confirmed rooms, encryption, inspector; wrong-secret tab not confirmed |
+| 3 | Run the server, open two tabs (same secret) and a third (different secret) | Confirm real browser behavior | `python app.py`, open http://127.0.0.1:5000 | Same-secret tab shows message "authenticated"; other-secret tab shows red failure; Inspect panel fills | Yes (user confirmed, incl. wrong-secret tab) |
 
 ## Deployment Status
 - **Local:** Server ran in sandbox in Phases 2-3 (`python app.py`); not tested on user's machine
