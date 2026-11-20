@@ -4,8 +4,8 @@ An **educational** demonstration of the RC4 stream cipher inside a real-time enc
 RC4 is cryptographically obsolete. This project is for learning and demonstration only and does
 **not** provide modern security guarantees.
 
-> Status: **Phase 5 of 6 complete** (RC4 core, ciphertext relay, encrypted chat UI, benchmarks, security tests, rate limiting).
-> Render deployment files are ready; see [DEPLOYMENT.md](DEPLOYMENT.md).
+> Status: **All 6 phases complete** (RC4 core, ciphertext relay, encrypted chat UI, benchmarks, security tests, rate limiting).
+> Deployed on Render; see [DEPLOYMENT.md](DEPLOYMENT.md), [DEMO_GUIDE.md](DEMO_GUIDE.md), [VIVA_QA.md](VIVA_QA.md), [FINAL_CHECKLIST.md](FINAL_CHECKLIST.md).
 > See [PLAN.md](PLAN.md) for the live progress tracker.
 
 ## Planned architecture

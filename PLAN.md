@@ -7,10 +7,10 @@
 - **Target hosting platform:** Render free web service (via GitHub)
 
 ## Current Status
-- **Current phase:** Phase 5 files complete (not deployed yet), awaiting approval for Phase 6
-- **Last completed phase:** 5
-- **Overall progress:** 5 / 6 phases
-- **Last updated:** 2026-11-19 17:15 UTC (22:45 IST)
+- **Current phase:** All 6 phases complete
+- **Last completed phase:** 6
+- **Overall progress:** 6 / 6 phases
+- **Last updated:** 2026-11-20
 - **Current blockers:** None
 
 ## Phase Tracker
@@ -21,8 +21,8 @@
 | 2 | Backend | Completed | 28 pytest (socket + HTTP) passed; live WebSocket smoke test passed | Run in Linux sandbox, not yet on your Windows machine |
 | 3 | Encrypted chat UI | Completed | 54 pytest + 11 + 12 JS passed; real-browser (Chromium) 3-tab check passed | Run in Linux sandbox, not yet on your Windows machine |
 | 4 | Performance/security | Completed | 9 security + 1 bench JS + 3 limiter pytest-style passed; socket rate-limit tests NOT run | Flask-SocketIO/pytest not installable in sandbox (no network); see Test Results |
-| 5 | Render deployment | Completed (files only) | Syntax + YAML parse only | Gunicorn/Render not run in sandbox; you must deploy (Manual Action 6) |
-| 6 | Final testing | Pending | Not run | |
+| 5 | Render deployment | Completed | Deployed by user; site works | Files written in sandbox; deployment and live check done by user |
+| 6 | Final testing | Completed | User live check: site, rooms, encryption, inspector OK | DEMO_GUIDE, VIVA_QA, FINAL_CHECKLIST added; open items listed in FINAL_CHECKLIST.md |
 
 ## Completed Tasks
 - [x] Project directory structure created
@@ -57,8 +57,9 @@
 
 - [x] Phase 5: `gunicorn.conf.py` (1 worker, 100 threads, `$PORT`, trusts proxy), `render.yaml` (free plan, `/health`, generated `SECRET_KEY`), `gunicorn==23.0.0` in requirements, optional `ALLOWED_ORIGINS` env in `app.py`, `DEPLOYMENT.md`
 
+- [x] Phase 6: `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`; user confirmed live site, rooms, encryption and inspector
+
 ## Pending Tasks
-- [ ] Phase 6: Final testing, DEMO_GUIDE.md, VIVA_QA.md, FINAL_CHECKLIST.md
 
 ## File Inventory
 
@@ -91,6 +92,7 @@
 | `gunicorn.conf.py` | Gunicorn settings for Render |
 | `render.yaml` | Render Blueprint |
 | `DEPLOYMENT.md` | Deploy, verify, troubleshoot |
+| `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md` | Phase 6 deliverables |
 | `README.md` | Overview, setup, test commands |
 | `PLAN.md` | This file |
 
@@ -116,6 +118,7 @@
 | Bench UI | Playwright Chromium, stub `io` | Panel ran, RTT row + CSV download OK, 0 page errors | Partial | Real server RTT not exercised |
 | Phase 1-3 suites | node tests/test_rc4.js, test_protocol.js | 11 + 12 passed | Pass | Python suite and real-server socket tests NOT rerun after `app.py` change |
 | Deploy files | `ast.parse` on `app.py`, `gunicorn.conf.py`; YAML parse of `render.yaml` | OK | Partial | Gunicorn, Flask-SocketIO and Render not available in sandbox |
+| Live Render site | manual by user | site loads, rooms work, encryption works, inspector populated | Pass | Reported by user; wrong-secret and corrupt toggle not reported |
 | On user's Windows machine | not run | | Unverified | See Manual Actions |
 | UI on your browsers | not run | | Unverified | See Manual Actions |
 
@@ -127,14 +130,14 @@
 | 2 | Install Node.js if `node --version` fails | Needed for JS tests and cross-language tests | https://nodejs.org (LTS) | `node --version` | No |
 | 4 | Run full suite after Phase 4 | Socket rate-limit tests and Phase 2-3 socket tests could not run in sandbox | `pip install -r requirements.txt` then `python -m pytest tests -v` | All pass, none skipped |
 | 5 | Run server, open page, run benchmark panel, download CSV into `results/` | Real RTT numbers | `python app.py` | CSV has `rtt_echo` row |
-| 6 | Push to GitHub, deploy via Render Blueprint, follow DEPLOYMENT.md "Verify" | Real deployment untested | See `DEPLOYMENT.md` | `/health` ok; 2 browsers chat; third with wrong secret fails | No |
-| 3 | Run the server, open two tabs (same secret) and a third (different secret) | Confirm real browser behavior | `python app.py`, open http://127.0.0.1:5000 | Same-secret tab shows message "authenticated"; other-secret tab shows red failure; Inspect panel fills | No |
+| 6 | Push to GitHub, deploy via Render Blueprint, follow DEPLOYMENT.md "Verify" | Real deployment untested | See `DEPLOYMENT.md` | `/health` ok; 2 browsers chat; third with wrong secret fails | Yes (user confirmed) |
+| 3 | Run the server, open two tabs (same secret) and a third (different secret) | Confirm real browser behavior | `python app.py`, open http://127.0.0.1:5000 | Same-secret tab shows message "authenticated"; other-secret tab shows red failure; Inspect panel fills | Partly: user confirmed rooms, encryption, inspector; wrong-secret tab not confirmed |
 
 ## Deployment Status
 - **Local:** Server ran in sandbox in Phases 2-3 (`python app.py`); not tested on user's machine
-- **Render:** Configured (`render.yaml`), not deployed
-- **Public URL:** None
-- **Outstanding deployment issues:** Unknown until first deploy; `gunicorn==23.0.0` pin and WebSocket origin check behind Render proxy unverified (fallback: `ALLOWED_ORIGINS`)
+- **Render:** Deployed and working (user confirmed)
+- **Public URL:** Held by user (not recorded here)
+- **Outstanding deployment issues:** None reported
 
 ## Known Issues and Limitations
 - Shared secret is user-chosen (min 8 chars); weak secrets are brute-forceable offline. No key exchange, no forward secrecy. Replay protection is per-session only. WebCrypto requires HTTPS or localhost (Render is HTTPS).
@@ -149,6 +152,11 @@
 - Package is named `crypto/` per the spec; PyCryptodome's package is `Crypto/` (capital C). Python import is case-sensitive, so they do not clash.
 
 ## Change Log
+
+### Phase 6
+- **Created:** `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`
+- **Modified:** `README.md`, `PLAN.md`
+- **Deleted:** none
 
 ### Phase 5
 - **Created:** `gunicorn.conf.py`, `render.yaml`, `DEPLOYMENT.md`
@@ -182,7 +190,4 @@
 - **Tests performed:** see Test Results
 
 ## Next Phase
-- **Phase 6:** Final testing
-- **Objectives:** Full test pass on your machine and Render, `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`
-- **Dependencies:** Phase 5 approved
-- **Expected deliverables:** the three docs, final test results, updated `PLAN.md`
+- None. All phases complete. Remaining optional items are in `FINAL_CHECKLIST.md`.
