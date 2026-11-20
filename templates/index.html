@@ -3,18 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>RC4 Secure Chat</title>
+  <meta name="theme-color" content="#F8C800">
+  <title>RC4 Secure Chat | NIT Patna</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/nitp-logo.png') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
   <header class="top">
-    <h1>RC4 Secure Chat</h1>
-    <span class="badge" id="status" role="status">connecting...</span>
+    <div class="wrap">
+      <img class="logo" src="{{ url_for('static', filename='img/nitp-logo.png') }}" width="64" height="62"
+           alt="NIT Patna logo">
+      <div class="title">
+        <div class="inst">National Institute of Technology Patna</div>
+        <div class="inst-hi" lang="hi">राष्ट्रीय प्रौद्योगिकी संस्थान पटना</div>
+        <h1>RC4 Secure Chat</h1>
+      </div>
+      <span class="badge" id="status" role="status">connecting...</span>
+    </div>
   </header>
+
+  <div class="wrap content">
   <p class="edu">Educational demo. RC4 is obsolete; do not use it to protect real data.</p>
 
-  <main id="joinView" class="card">
-    <form id="joinForm" autocomplete="off">
+  <main id="joinView" class="join">
+    <form id="joinForm" class="card" autocomplete="off">
+      <h2>Join a secure room</h2>
       <label for="username">Username</label>
       <input id="username" maxlength="24" pattern="[A-Za-z0-9_\-]{1,24}" required
              title="1-24 characters: letters, digits, _ or -">
@@ -28,6 +41,27 @@
       <button id="joinBtn" type="submit" disabled>Join</button>
       <p id="joinError" class="error" role="alert"></p>
     </form>
+
+    <section class="card about" aria-labelledby="aboutTitle">
+      <h2 id="aboutTitle">RC4 Based Secure Text Communication System</h2>
+      <p>Messages are encrypted in the browser with RC4 using a fresh key for every message, and
+        authenticated with HMAC-SHA256. The server only relays ciphertext. Built to demonstrate the
+        cipher, its weaknesses and the protections added around it.</p>
+      <p class="course">Course: Network Security (CS64153)<br>
+        Department of Computer Science and Engineering<br>
+        National Institute of Technology Patna</p>
+      <table class="team">
+        <caption>Project team</caption>
+        <thead><tr><th scope="col">Name</th><th scope="col">Roll No.</th></tr></thead>
+        <tbody>
+          <tr><td>Sparsh Sharma</td><td>2306210</td></tr>
+          <tr><td>Ayush Kumar</td><td>2306214</td></tr>
+          <tr><td>Khushi Keshari</td><td>2306211</td></tr>
+          <tr><td>Siddharth Jain</td><td>2306212</td></tr>
+          <tr><td>Muskaan</td><td>2306213</td></tr>
+        </tbody>
+      </table>
+    </section>
   </main>
 
   <div id="chatView" class="chat" hidden>
@@ -62,6 +96,19 @@
     <button id="benchCsv" type="button" disabled>Download CSV</button>
     <pre id="benchOut" class="bench-out" aria-live="polite"></pre>
   </details>
+  </div>
+
+  <footer class="foot">
+    <div class="wrap">
+      <img class="logo sm" src="{{ url_for('static', filename='img/nitp-logo.png') }}" width="44" height="42"
+           alt="NIT Patna logo">
+      <div>
+        <strong>RC4 Based Secure Text Communication System</strong><br>
+        Network Security (CS64153), Department of Computer Science and Engineering, NIT Patna<br>
+        Team: Sparsh Sharma, Ayush Kumar, Khushi Keshari, Siddharth Jain, Muskaan
+      </div>
+    </div>
+  </footer>
 
   <script src="{{ url_for('static', filename='js/vendor/socket.io.min.js') }}"></script>
   <script src="{{ url_for('static', filename='js/crypto.js') }}"></script>

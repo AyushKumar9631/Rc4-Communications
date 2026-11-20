@@ -59,6 +59,8 @@
 
 - [x] Phase 6: `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`; user confirmed live site, rooms, encryption and inspector
 
+- [x] UI branding: NIT Patna theme (logo gold/saffron/crimson/ink, light + dark), logo in header, footer and as faint background watermark, project info and team table (names, roll numbers) on the join screen, favicon; new `static/img/nitp-logo.png`; `templates/index.html` and `static/css/style.css` restyled, element IDs and JS unchanged
+
 ## Pending Tasks
 
 ## File Inventory
@@ -67,7 +69,8 @@
 |---|---|
 | `app.py` | Flask + Flask-SocketIO backend (`create_app()`, module-level `app`/`socketio` for Gunicorn later) |
 | `templates/index.html` | Chat UI page (Phase 3) |
-| `static/css/style.css` | UI styles |
+| `static/css/style.css` | UI styles (NIT Patna theme) |
+| `static/img/nitp-logo.png` | NIT Patna logo (transparent background) for header, footer, favicon, watermark |
 | `static/js/app.js` | UI logic: socket events, send/receive, inspector |
 | `static/js/protocol.js` | HKDF/HMAC/RC4 message protocol (browser + Node) |
 | `static/js/vendor/socket.io.min.js`, `socket.io-client.LICENSE` | Vendored Socket.IO client 4.7.5 (MIT) |
@@ -122,6 +125,7 @@
 | Live checks (wrong secret, corrupt toggle, inspector failure, nonce uniqueness, XSS text, join rules, leave/rejoin) | manual by user on Render | all reported passed | Pass | Reported by user |
 | Live rate limit | browser console: 60 rapid `echo` | 31 ok of 60 (burst 30 + 1 refill) | Pass | Confirms limiter on real Gunicorn server |
 | Python suite | not run | | Unverified | User chose not to run locally; not runnable in sandbox |
+| NIT Patna UI restyle | Playwright Chromium, stub socket: light, dark, 390 px mobile, join and chat views | Rendered correctly, 0 console errors | Pass (visual) | Sandbox screenshots; live site to be checked by user |
 | On user's Windows machine | not run | | Unverified | See Manual Actions |
 | UI on your browsers | not run | | Unverified | See Manual Actions |
 
@@ -155,6 +159,11 @@
 - Package is named `crypto/` per the spec; PyCryptodome's package is `Crypto/` (capital C). Python import is case-sensitive, so they do not clash.
 
 ## Change Log
+
+### UI enhancement (NIT Patna branding)
+- **Created:** `static/img/nitp-logo.png`
+- **Modified:** `templates/index.html`, `static/css/style.css`, `PLAN.md`
+- **Deleted:** none
 
 ### Phase 6
 - **Created:** `DEMO_GUIDE.md`, `VIVA_QA.md`, `FINAL_CHECKLIST.md`
